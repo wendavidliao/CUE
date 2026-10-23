@@ -57,4 +57,3 @@ Local Git metadata and the former Sites hosting configuration have been removed.
 For database integration, start with `dist/api.js` and the operation contracts above. If a framework/build tool is introduced later, move application code into a source directory and keep generated output separate from source files.
 
 This is a frontend prototype, not production database middleware. Albums currently expose only title; release date editing is deferred. Genre hierarchy and user accounts are outside the supplied schema. No real songs, audio files, media upload, waveform or playback are present.
-# CUE
