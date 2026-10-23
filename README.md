@@ -13,9 +13,9 @@ Serve `dist/` with any static HTTP server, for example `python3 -m http.server 4
 3. Add tracks, reorder with arrow buttons or drag handles, and edit performance notes. Click Save changes to commit the arrangement.
 4. Open a track's Details, inspect Timing, then use Cues to add or edit timestamp annotations.
 5. Edit timing metadata to see derived bars recalculate. Invalid timestamps and duration changes that would invalidate existing cues are rejected.
-6. Inspect Catalogue lists or add reusable records. Reset demo data restores the original fictional sample.
+6. Reset demo data restores the original fictional sample. Artist, album, genre and tag records remain available in track forms and filters; there is no separate catalogue management screen.
 
-Edits are stored in localStorage for this browser and origin. Set changes are staged until Save changes. Navigating away from the builder currently discards unsaved set edits. The catalogue supports listing and adding records in v1; editing/deleting catalogue records is not included.
+Edits are stored in localStorage for this browser and origin. Set changes are staged until Save changes. Navigating away from the builder currently discards unsaved set edits.
 
 ## Backend integration boundary
 
