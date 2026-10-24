@@ -18,7 +18,7 @@ API base: `https://db.yhluk.com/api/v1`. The documented permitted browser origin
 
 Browsing is public. Enable editing by entering the privately supplied shared write token in the runtime dialog. It remains in memory only and is checked by the server on writes; enabling the interface does not validate the token. Locking or reloading clears it. No token belongs in Git, localStorage, screenshots or build variables.
 
-Reset was removed because there is no reset API. Track and set deletion use fresh detail ETags and explicit confirmation. Track deletion is rejected while a set references it; deleting a set preserves library tracks. No additional catalogue-management screens were added. The existing track forms use catalogue records from the database.
+Reset was removed because there is no reset API. Track and set deletion use fresh detail ETags and explicit confirmation. Track deletion is rejected while a set references it; deleting a set preserves library tracks. Add track includes inline creation of artists (optional country), albums (optional release date), genres and tags. New records are immediately selected without resetting the track draft. These catalogue records persist even if the track form is cancelled. Genre names must be unique; tags may share a name and remain distinguished by ID. The existing track forms use catalogue records from the database.
 
 ## Integration behaviour
 
