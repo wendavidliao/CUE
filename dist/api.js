@@ -1,16 +1,27 @@
-// Replace this adapter with HTTP calls when the backend is ready.
-// All times are seconds; BPM and timestamps retain decimal precision.
-const seed={artists:[{id:1,name:'Mira Sol',country:'Australia'},{id:2,name:'North Circuit',country:'United Kingdom'},{id:3,name:'Kaito Vale',country:'Japan'},{id:4,name:'Sera Bloom',country:'France'},{id:5,name:'Low Atlas',country:'Germany'},{id:6,name:'Eden Phase',country:'Canada'}],albums:[{id:1,name:'After the Light'},{id:2,name:'Soft Machines'},{id:3,name:'Tidal Memory'}],genres:['Deep House','Melodic Techno','Ambient','Progressive House'],tags:['Warm-up','Peak time','Vocal','Late night'],tracks:[
-{id:1,title:'Amber Hours',artists:[{id:1,role:'Main artist'}],bpm:122,key:'Am',duration:365,downbeat:4,album:1,genres:['Deep House'],tags:['Warm-up'],language:null,instrumental:true},
-{id:2,title:'Parallel Lines',artists:[{id:2,role:'Main artist'},{id:5,role:'Remixer'}],bpm:126,key:'Em',duration:412,downbeat:0,album:2,genres:['Melodic Techno'],tags:['Peak time'],language:null,instrumental:true},
-{id:3,title:'Tidal Memory',artists:[{id:3,role:'Main artist'}],bpm:124,key:'Am',duration:387,downbeat:8,album:3,genres:['Progressive House'],tags:['Late night'],language:null,instrumental:null},
-{id:4,title:'Velvet Static',artists:[{id:4,role:'Main artist'}],bpm:120,key:'Dm',duration:342,downbeat:2,album:1,genres:['Deep House'],tags:['Vocal','Warm-up'],language:'French',instrumental:false},
-{id:5,title:'Glass Garden',artists:[{id:6,role:'Main artist'}],bpm:118,key:'C',duration:306,downbeat:null,album:null,genres:['Ambient'],tags:['Warm-up'],language:null,instrumental:null},
-{id:6,title:'Night Geometry',artists:[{id:5,role:'Main artist'}],bpm:128,key:'Em',duration:428,downbeat:0,album:2,genres:['Melodic Techno'],tags:['Peak time','Late night'],language:null,instrumental:true},
-{id:7,title:'Slow Orbit',artists:[{id:1,role:'Main artist'},{id:3,role:'Producer'}],bpm:123.5,key:'G',duration:374,downbeat:6,album:null,genres:['Deep House','Progressive House'],tags:['Late night'],language:null,instrumental:true},
-{id:8,title:'First Light',artists:[{id:6,role:'Main artist'}],bpm:121,key:'Dm',duration:351,downbeat:3,album:3,genres:['Progressive House'],tags:['Vocal'],language:'English',instrumental:false}],sets:[{id:1,name:'After Hours',items:[{track_id:1,position:1,notes:'Open with a long intro. Keep the energy low.',date_added:'2026-10-23'},{track_id:4,position:2,notes:'Let the vocal breathe before the next entry.',date_added:'2026-10-23'},{track_id:3,position:3,notes:'Build into the melodic section.',date_added:'2026-10-23'}]},{id:2,name:'Warehouse Session',items:[{track_id:2,position:1,notes:'',date_added:'2026-10-23'},{track_id:6,position:2,notes:'',date_added:'2026-10-23'}]},{id:3,name:'A New Direction',items:[]}],cues:[{id:1,track_id:1,name:'Intro',type:'Entry',seconds:4,color:'#c6ef93',comment:'First downbeat'},{id:2,track_id:1,name:'Main phrase',type:'Phrase',seconds:67,color:'#96bff2',comment:'Bring in the next layer'},{id:3,track_id:1,name:'Exit',type:'Exit',seconds:305,color:'#e2af86',comment:'Start transition'},{id:4,track_id:3,name:'Atmosphere',type:'Entry',seconds:0,color:'#c6ef93',comment:'Before the first downbeat'}]};
-let state;try{state=JSON.parse(localStorage.getItem('cue-demo-v1'))||structuredClone(seed)}catch{state=structuredClone(seed)}
-export const api={async load(){return structuredClone(state)},async save(next){validate(next);localStorage.setItem('cue-demo-v1',JSON.stringify(next));state=structuredClone(next);return structuredClone(state)},async reset(){localStorage.removeItem('cue-demo-v1');state=structuredClone(seed);return structuredClone(state)}};
-export function validate(s){for(const t of s.tracks){if(!t.title.trim()||!(t.bpm>0)||!(t.duration>0)||!t.artists.length)throw Error('A title, positive BPM and duration, and at least one artist are required.');if(new Set(t.artists.map(a=>a.id)).size!==t.artists.length)throw Error('Each artist may be credited once per track.');if(t.downbeat!==null&&!(t.downbeat>=0&&t.downbeat<t.duration))throw Error('First downbeat must be within the track.')}for(const c of s.cues){const t=s.tracks.find(t=>t.id===c.track_id);if(!t||!(c.seconds>=0&&c.seconds<t.duration))throw Error('Cue timestamps must be within track duration.')}for(const set of s.sets){if(!set.name.trim())throw Error('Enter a set name.');if(new Set(set.items.map(i=>i.track_id)).size!==set.items.length)throw Error('A track can appear only once in a set.');if(set.items.some(i=>!s.tracks.some(t=>t.id===i.track_id)))throw Error('Set references an unknown track.');if(set.items.some(i=>!Number.isInteger(i.position)||i.position<1)||new Set(set.items.map(i=>i.position)).size!==set.items.length)throw Error('Set positions must be unique positive integers.')}}
-export const totalBars=t=>t.downbeat===null?null:Math.ceil((t.duration-t.downbeat)*t.bpm/240);
-export const cueBar=(t,c)=>t.downbeat===null||c.seconds<t.downbeat?null:Math.floor((c.seconds-t.downbeat)*t.bpm/240)+1;
+import { createCueClient } from './frontend-client.js';
+export const api = createCueClient();
+// Load every page for this small teaching catalogue, without unbounded concurrency.
+api.all = async function(resource) {
+  const records = [];
+  for (let offset = 0; ; offset += 100) {
+    const result = await api.list(resource, { limit: 100, offset });
+    if (!Array.isArray(result.data) || !Number.isInteger(result.meta?.total)) throw Error('Invalid API list response');
+    records.push(...result.data);
+    if (records.length >= result.meta.total) return records;
+    if (!result.data.length) throw Error('Catalogue changed during pagination. Refresh data.');
+  }
+};
+api.load = async function() {
+  const state = {};
+  for (const resource of ['tracks', 'artists', 'albums', 'genres', 'tags', 'sets', 'cues']) {
+    state[resource] = await api.all(resource);
+  }
+  state.genre_records = state.genres;
+  state.tag_records = state.tags;
+  state.genres = state.genre_records.map(record => record.name);
+  state.tags = state.tag_records.map(record => record.name);
+  return state;
+};
+// Display database values, including null; never conceal an incorrect server value.
+export const totalBars = track => track.total_bars;
+export const cueBar = (_track, cue) => cue.bar_number;

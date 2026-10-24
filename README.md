@@ -1,59 +1,43 @@
-# CUE DJ set frontend demo
+# CUE DJ set database demo
 
-A responsive frontend for the DJ Set Management System proposal. It uses fictional text metadata, has no audio features, and does not connect to or create a database. Built with browser ES modules, HTML and CSS; no installation or build step is required.
+A browser frontend for the A1 DJ Set Management System. It displays fictional metadata from PostgreSQL through the deployed CUE v1 HTTPS API and implements proposal operations R1–R5. It has no audio features or personal accounts.
 
 ## Run
 
-Serve `dist/` with any static HTTP server, for example `python3 -m http.server 4173 --directory dist`, then open http://localhost:4173. ES modules require HTTP rather than opening the HTML with file://.
+Serve the hand-written `dist/` source with `python3 -m http.server 4173 --directory dist`. No build or package installation is required for the application.
 
-## Demo walkthrough
+API base: `https://db.yhluk.com/api/v1`. The documented permitted browser origin is `https://wendavidliao.github.io`; the existing Pages workflow publishes `dist/` on pushes to main. A local server needs its precise origin allowed by the backend. On 2026-10-24 a preflight from `http://localhost:4173` did not receive an allow-origin header. Do not disable browser security to bypass CORS.
 
-1. Filter the Track Library by genre, tag, key or inclusive BPM range.
-2. Select tracks and create a named set, or open After Hours under DJ Sets.
-3. Add tracks, reorder with arrow buttons or drag handles, and edit performance notes. Click Save changes to commit the arrangement.
-4. Open a track's Details, inspect Timing, then use Cues to add or edit timestamp annotations.
-5. Edit timing metadata to see derived bars recalculate. Invalid timestamps and duration changes that would invalidate existing cues are rejected.
-6. Reset demo data restores the original fictional sample. Artist, album, genre and tag records remain available in track forms and filters; there is no separate catalogue management screen.
+## Demo operations
 
-Edits are stored in localStorage for this browser and origin. Set changes are staged until Save changes. Navigating away from the builder currently discards unsaved set edits.
+- R1: search by track title or artist and filter by genre, tag, key and inclusive BPM bounds.
+- R2: select tracks and create a set with initial membership in one POST transaction. Empty sets are supported.
+- R3: open a set, add/remove tracks, drag or use arrows to reorder, edit notes, and save the full arrangement atomically. Rename saves separately; save an arrangement before renaming.
+- R4: create/edit/delete cue annotations and display database-derived bars. Track timing edits refresh cues so trigger-maintained bars can be shown.
+- R5: view ordered contents, count, average BPM and source duration. Statistics are browser calculations from the loaded track records, not evidence that the SQL summary view was queried. Empty-set average BPM displays an em dash.
 
-## Backend integration boundary
+Browsing is public. Enable editing by entering the privately supplied shared write token in the runtime dialog. It remains in memory only and is checked by the server on writes; enabling the interface does not validate the token. Locking or reloading clears it. No token belongs in Git, localStorage, screenshots or build variables.
 
-`dist/api.js` exports async `api.load()`, `api.save(nextState)`, and `api.reset()`. The UI imports only this adapter for persistence. Replace these methods with HTTP calls and map response records into the frontend shape. `reset()` is demo-only and should be removed from a connected deployment.
+Reset was removed because there is no reset API. Track and set deletion use fresh detail ETags and explicit confirmation. Track deletion is rejected while a set references it; deleting a set preserves library tracks. No additional catalogue-management screens were added. The existing track forms use catalogue records from the database.
 
-Recommended API operations:
+## Integration behaviour
 
-| Operation | Suggested route | Backend responsibility |
-| --- | --- | --- |
-| Search tracks | GET /api/tracks?genre=&tag=&key=&bpm_min=&bpm_max= | Filtering, joins and artist credits |
-| Create/edit track | POST /api/tracks; PATCH /api/tracks/:id | Track plus credits/classification transaction |
-| Read catalogue | GET /api/artists; /api/albums; /api/genres; /api/tags | Entity records |
-| Read sets | GET /api/sets; GET /api/sets/:id | Contents and summary |
-| Create set | POST /api/sets | Name and initial items in one transaction |
-| Save arrangement | PUT /api/sets/:id/items | Membership, unique positions and notes in one transaction |
-| Edit cues | POST /api/tracks/:id/cues; PATCH /api/cues/:id; DELETE /api/cues/:id | Timing bounds and derived bar consistency |
+`frontend-client.js` handles individual resources and HTTP errors. `api.js` assembles all pages for the small teaching catalogue; it does not read localStorage or silently fall back to mock records. Separate list requests do not provide a cross-resource snapshot; use Refresh data if another demonstrator changes related records.
 
-The route names are proposed contracts, not an implemented server. The initial `save(nextState)` adapter is convenient for the demo; replace it with operation-specific calls for integration. The backend must enforce constraints and return friendly error messages. Add version tokens/optimistic concurrency handling for shared multi-client updates.
+Forms send explicit writable fields only. Server-generated IDs, derived bars, set positions and addition timestamps are never submitted. Classification uses stable IDs, including distinct tags with duplicate names. Unknown timing and metadata remain null. Arbitrary stored colour text is not injected into inline CSS; unsupported colours use a neutral display fallback.
 
-## Record mapping
+Editing starts with a detail GET and retains its exact ETag. PATCH/PUT/DELETE send If-Match. A 412 preserves input and blocks stale form submission; set conflicts offer side-by-side JSON comparison and explicit discard/reload. There is no automatic overwrite. Unsaved set arrangements prompt before navigation or refresh.
 
-Frontend `id` maps to each entity's primary key. Track `key`, `duration`, `downbeat`, `album`, and `instrumental` map to `musical_key`, `duration`, `first_downbeat_seconds`, `album_id`, and `is_instrumental`. Artist `{id, role}` maps to Track_Artist. Genre/tag arrays map to their junction tables (use IDs in the connected adapter, since tag names need not be unique). Set items `{track_id, position, notes, date_added}` map to Set_Track, with `notes` mapping to `performance_notes`. Cue `seconds` maps to `position_seconds` and cue `id` to `cue_info_id`.
+Writes are not automatically retried. Network failures may happen after commit: creation forms stop resubmission and ask the demonstrator to refresh/verify. Only successful responses produce saved notifications. Requests time out after 15 seconds. Database field errors appear in forms. The API limits lists to 100 associations/items and request bodies to 16 KiB; long notes can hit the body limit before 100 items.
 
-`totalBars()` and `cueBar()` compute previews using the proposal's formulas. In the connected version, display backend-derived fields after successful writes. A null first downbeat produces unknown bars; cues before the downbeat have no bar number. Source duration sums full tracks and does not estimate mixed performance time.
+## Verification
 
-## Files
+Run API-client checks with `node tests/client.mjs` (modern Node). Run isolated browser tests with `node tests/smoke.cjs`, with Playwright available through module resolution or `CUE_PLAYWRIGHT_PATH`. Chrome is the default browser channel; override with `CUE_BROWSER_CHANNEL`. This test runs its own localhost server on port 4173 and intercepts all API requests. Its fixture is not a SQL backend and cannot prove database constraints, rollback or triggers.
 
-- `dist/index.html`: entry point
-- `dist/style.css`: responsive visual system
-- `dist/app.js`: screens, forms and local interaction state
-- `dist/api.js`: mock API adapter, fictional seed data and validation
+Run public read-only deployment checks with `python3 tests/live-reads.py`; curl must be installed. This script sends GET requests only.
 
-## Continued development
+See `tests/VERIFICATION.md` for tested coverage and outstanding live-write checks. Do not test writes on shared records. Keep SQL/CLI evidence for transaction rollback, constraints, normalisation and advisory-lock behaviour.
 
-The project consists of this README and the four files in `dist/`. In this buildless project, `dist/` is the hand-written application source, not disposable generated output. No package installation is required, so there is no package manifest or lockfile yet.
+For a browser-level live read check, run `node tests/live-browser.cjs` with the same Playwright setup. It substitutes local application files at the documented allowed origin inside its isolated browser only, reads the real API, and rejects any non-GET API request. It does not publish files or change the hosted page.
 
-Local Git metadata and the former Sites hosting configuration have been removed. No hosting service is required to run this project. Removing these local files does not disable the previously published remote demo.
-
-For database integration, start with `dist/api.js` and the operation contracts above. If a framework/build tool is introduced later, move application code into a source directory and keep generated output separate from source files.
-
-This is a frontend prototype, not production database middleware. Albums currently expose only title; release date editing is deferred. Genre hierarchy and user accounts are outside the supplied schema. No real songs, audio files, media upload, waveform or playback are present.
+The frontend is complete against the supplied v1.1 contract. At the user’s direction, backend write behaviour is assumed to follow that contract; no claim of live write verification is made.
